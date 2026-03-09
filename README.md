@@ -12,6 +12,16 @@ Connects to `phantom.cryoarchive.systems` via WebSocket and decodes the collabor
 
 ![mock canvas](mock_render.png)
 
+**About the images:** The server only sends 3-bit cell indices (0-7) and a palette string (`.,/#MWx=`). The PNGs above were rendered locally using PIL with an **arbitrary grayscale mapping** — they are our visual interpretation, not something received from the server. The actual mapping used:
+
+```
+Character:  .    ,    /    #    M    W    x    =
+Grayscale:  240  210  180  120  80   50   30   15
+            (lightest)                    (darkest)
+```
+
+The ASCII text below is the actual decoded data. The PNGs are just one way to visualize it.
+
 ## How it works
 
 phantom.cryoarchive.systems hosts collaborative pixel-art game rooms over binary WebSocket. Each cell is 3 bits packed into bytes, mapping to an 8-character ASCII palette.
@@ -49,6 +59,21 @@ Char:   .   ,   /   #   M   W   x   =
 ```
 
 **6. Render as text** — each row of width cells becomes one line of ASCII art.
+
+### How the protocol was reverse-engineered
+
+No public documentation of the phantom WebSocket protocol exists. The byte layout was figured out through **heuristic analysis of the raw binary responses**:
+
+1. Connected to the WebSocket with Python `websocket-client` and received 21 bytes
+2. Byte 0 (`0x02`) — small integer, assumed message type
+3. Bytes 1-4 as uint32 big-endian = `2000` — round number, assumed tick rate in ms
+4. Bytes 5-8 as uint32 = `1` — matched the fact we were the only connection
+5. Bytes 9-12 as uint32 = `10000` — round capacity number, assumed max players
+6. Bytes 13-20 decoded as ASCII = `.,/#MWx=` — 8 printable characters that look like an ASCII art palette (dots/slashes/hashes = light-to-dark convention)
+7. After sending `\x01`, a second message arrived. Bytes 4-5 as uint16 = `59`, bytes 6-7 = `28`. If each cell is 3 bits: 59 x 28 = 1652 cells x 3 bits = 4956 bits = ~620 bytes — this matched the actual payload size
+8. Decoding with 3-bit cells and the palette produced a **recognizable Marathon logo**, confirming the interpretation
+
+**The field names (`tick rate`, `players`, etc.) are our labels, not official names.** They are educated guesses based on the values observed. The grid decode is the most confident part — the math checks out exactly and produces meaningful imagery.
 
 ## Decoded ASCII art
 
