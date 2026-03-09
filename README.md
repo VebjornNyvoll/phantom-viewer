@@ -34,9 +34,9 @@ phantom.cryoarchive.systems hosts collaborative pixel-art game rooms over binary
 
 ```
 byte 0:      0x02           message type
-bytes 1-4:   uint32 BE      tick rate (2000)
-bytes 5-8:   uint32 BE      current player count
-bytes 9-12:  uint32 BE      max players (10000)
+bytes 1-4:   uint32 BE      unknown (observed value: 2000)
+bytes 5-8:   uint32 BE      unknown (observed value: 1 — possibly player count)
+bytes 9-12:  uint32 BE      unknown (observed value: 10000 — possibly max players)
 bytes 13-20: 8 ASCII chars  palette string, e.g. ".,/#MWx="
 ```
 
@@ -66,14 +66,17 @@ No public documentation of the phantom WebSocket protocol exists. The byte layou
 
 1. Connected to the WebSocket with Python `websocket-client` and received 21 bytes
 2. Byte 0 (`0x02`) — small integer, assumed message type
-3. Bytes 1-4 as uint32 big-endian = `2000` — round number, assumed tick rate in ms
-4. Bytes 5-8 as uint32 = `1` — matched the fact we were the only connection
-5. Bytes 9-12 as uint32 = `10000` — round capacity number, assumed max players
-6. Bytes 13-20 decoded as ASCII = `.,/#MWx=` — 8 printable characters that look like an ASCII art palette (dots/slashes/hashes = light-to-dark convention)
+3. Bytes 1-4 as uint32 big-endian = `2000` — meaning unknown. Could be a tick interval in ms, a version number, a session parameter, etc.
+4. Bytes 5-8 as uint32 = `1` — we were the only connection, so possibly a player count, but unconfirmed
+5. Bytes 9-12 as uint32 = `10000` — round number, possibly a capacity limit, but unconfirmed
+6. Bytes 13-20 decoded as ASCII = `.,/#MWx=` — 8 printable characters that look like an ASCII art palette (dots/slashes/hashes = light-to-dark convention). **This is the most confident identification** — the characters are clearly a drawing palette
 7. After sending `\x01`, a second message arrived. Bytes 4-5 as uint16 = `59`, bytes 6-7 = `28`. If each cell is 3 bits: 59 x 28 = 1652 cells x 3 bits = 4956 bits = ~620 bytes — this matched the actual payload size
 8. Decoding with 3-bit cells and the palette produced a **recognizable Marathon logo**, confirming the interpretation
 
-**The field names (`tick rate`, `players`, etc.) are our labels, not official names.** They are educated guesses based on the values observed. The grid decode is the most confident part — the math checks out exactly and produces meaningful imagery.
+**Confidence levels:**
+- **Palette string (bytes 13-20):** High — 8 ASCII chars that function as a drawing palette
+- **Grid dimensions and 3-bit cell packing:** High — math matches payload size exactly, produces coherent art
+- **Bytes 1-12 field meanings:** Low — the values (2000, 1, 10000) are suggestive but unconfirmed. We named them "tick rate", "player count", and "max players" as guesses, not facts
 
 ## Decoded ASCII art
 
